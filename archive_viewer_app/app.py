@@ -407,9 +407,14 @@ def view_file(session_id, filepath):
     logger.info(f"خدمة الملف: {filepath} من المجلد: {secure_base_path}")
     return send_from_directory(secure_base_path, filepath)
 
-if __name__ == '__main__':
+#if __name__ == '__main__':
     # عند التشغيل محليًا، يمكنك تغيير المنفذ أو تفعيل وضع التصحيح
     # debug=True ليس موصى به للإنتاج أو عند استخدام ngrok بشكل مستمر في Colab
     # use_reloader=False مهم لـ ngrok في Colab
-    default_port = int(os.environ.get("PORT", 5000)) # PORT لبعض بيئات الاستضافة
-    app.run(host='0.0.0.0', port=default_port, debug=False, use_reloader=False)
+ #   default_port = int(os.environ.get("PORT", 5000)) # PORT لبعض بيئات الاستضافة
+  #  app.run(host='0.0.0.0', port=default_port, debug=False, use_reloader=False)
+# في نهاية ملف app.py
+if __name__ == '__main__':
+    # قراءة المنفذ من متغير البيئة، مع قيمة افتراضية إذا لم يتم تعيينه
+    port = int(os.environ.get("FLASK_RUN_PORT", 5000))
+    app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False)
