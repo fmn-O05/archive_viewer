@@ -3,7 +3,6 @@ from flask import Flask, request, jsonify, render_template, send_from_directory
 import os
 import shutil
 import time
-import glob
 import requests
 import rarfile # For .rar files
 import zipfile # For .zip files
@@ -12,9 +11,9 @@ import py7zr    # For .7z files
 import re
 import subprocess
 import json
-import math
 import hashlib
 import logging # For better logging
+from urllib.parse import urlparse # Added for URL parsing
 
 # --- إعداد التسجيل ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -37,6 +36,12 @@ EXTRACTED_FILES_DIR_FLASK_APP = os.path.join(UPLOAD_DIR_FLASK_APP, 'extracted_fi
 # مسار أداة megadl (يفترض أنها ستكون في PATH عند التشغيل في Colab بعد التثبيت)
 MEGADL_EXEC_PATH = "megadl"
 SUPPORTED_IMAGE_EXTENSIONS = ('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp', '.svg')
+
+# -- Timeouts and Configuration --
+REQUESTS_CONNECT_TIMEOUT = 30  # seconds
+REQUESTS_READ_TIMEOUT = 1800   # seconds (30 minutes)
+MEGADL_TIMEOUT = 3600          # seconds (1 hour)
+DOWNLOAD_CHUNK_SIZE = 8192 * 4 # 32KB chunk size for downloads
 
 # إنشاء المجلدات إذا لم تكن موجودة (مهم عند التشغيل لأول مرة)
 for dir_path in [TEMPLATE_DIR, STATIC_DIR, UPLOAD_DIR_FLASK_APP, TEMP_ARCHIVE_DIR_FLASK_APP, EXTRACTED_FILES_DIR_FLASK_APP]:
@@ -156,27 +161,72 @@ def build_file_structure(start_path, session_id):
     return structure
 
 def get_archive_type(filepath):
-    filename = os.path.basename(filepath).lower()
-    # التحقق من نوع الملف باستخدام المكتبات المتخصصة أولاً
-    try: # rarfile.is_rarfile يمكن أن يلقي استثناءات إذا كان الملف غير موجود أو لا يمكن الوصول إليه
-        if os.path.exists(filepath) and rarfile.is_rarfile(filepath): return 'rar'
-    except Exception: pass
-    try:
-        if os.path.exists(filepath) and zipfile.is_zipfile(filepath): return 'zip'
-    except Exception: pass
-    try:
-        if os.path.exists(filepath) and tarfile.is_tarfile(filepath): return 'tar'
-    except Exception: pass
-    try:
-        if os.path.exists(filepath) and filename.endswith('.7z'):
-            with py7zr.SevenZipFile(filepath, 'r') as _:
-                return '7z'
-    except Exception: pass
+    if not os.path.exists(filepath): # Check existence once
+        logger.warning(f"File not found for type checking: {filepath}")
+        return None
 
-    # التحقق بناءً على الامتداد كحل أخير
-    if filename.endswith('.rar'): return 'rar'
-    if filename.endswith('.zip'): return 'zip'
-    if filename.endswith(('.tar', '.tar.gz', '.tgz', '.tar.bz2', '.tbz2')): return 'tar'
+    filename = os.path.basename(filepath).lower()
+    archive_type_found = None
+
+    # Attempt to identify by library checks first
+    try:
+        if rarfile.is_rarfile(filepath):
+            archive_type_found = 'rar'
+            logger.debug(f"Identified as RAR by rarfile: {filepath}")
+            return archive_type_found
+    except Exception as e:
+        logger.debug(f"Not a RAR file or error checking RAR for {filepath}: {e}")
+        pass # Continue to next check
+
+    try:
+        if zipfile.is_zipfile(filepath):
+            archive_type_found = 'zip'
+            logger.debug(f"Identified as ZIP by zipfile: {filepath}")
+            return archive_type_found
+    except Exception as e:
+        logger.debug(f"Not a ZIP file or error checking ZIP for {filepath}: {e}")
+        pass
+
+    try:
+        # tarfile.is_tarfile can check for .tar, .tar.gz, .tar.bz2 etc.
+        if tarfile.is_tarfile(filepath):
+            archive_type_found = 'tar'
+            logger.debug(f"Identified as TAR by tarfile: {filepath}")
+            return archive_type_found
+    except Exception as e:
+        logger.debug(f"Not a TAR file or error checking TAR for {filepath}: {e}")
+        pass
+
+    # For 7z, py7zr does not have a simple is_7zfile().
+    # We rely on the extension and then try to open it.
+    if filename.endswith('.7z'):
+        try:
+            with py7zr.SevenZipFile(filepath, 'r') as _:
+                logger.debug(f"Identified as 7Z by py7zr opening: {filepath}")
+                return '7z' # Return immediately if confirmed
+        except py7zr.exceptions.Bad7zFile:
+            logger.debug(f"File {filepath} has .7z extension but is not a valid 7z archive.")
+            # Do not return yet, allow fallback to extension check if it was misidentified by lib
+        except Exception as e: # Other exceptions like permission errors
+            logger.warning(f"Error checking 7z file {filepath} with py7zr: {e}")
+            pass # Allow fallback
+
+    # Fallback to extension-based check if library checks failed or were inconclusive
+    logger.debug(f"Falling back to extension-based type check for {filepath}")
+    if filename.endswith('.rar'):
+        logger.debug(f"Identified as RAR by extension: {filepath}")
+        return 'rar'
+    if filename.endswith('.zip'):
+        logger.debug(f"Identified as ZIP by extension: {filepath}")
+        return 'zip'
+    if filename.endswith(('.tar', '.tar.gz', '.tgz', '.tar.bz2', '.tbz2')):
+        logger.debug(f"Identified as TAR by extension: {filepath}")
+        return 'tar'
+    if filename.endswith('.7z') and not archive_type_found: # If py7zr failed but extension is .7z
+        logger.debug(f"Identified as 7Z by extension (after py7zr check if applicable): {filepath}")
+        return '7z'
+
+    logger.info(f"Could not determine archive type for {filepath} using libraries or common extensions.")
     return None
 
 # --- مسارات Flask ---
@@ -187,6 +237,12 @@ def index():
 
 @app.route('/process-archive', methods=['POST'])
 def process_archive_route():
+    # For true scalability with many concurrent users and very large files,
+    # consider moving the download and extraction logic to a background task queue (e.g., Celery).
+    # This would prevent HTTP requests from timing out and allow the server to handle more requests.
+    # Also, for managing disk space with cached extracted files, implement a cleanup strategy
+    # (e.g., LRU cache for sessions, or periodic deletion of older extracted data).
+
     data = request.get_json()
     if not data: return jsonify({'error': 'لم يتم إرسال بيانات JSON.'}), 400
     original_archive_url = data.get('archive_url')
@@ -194,6 +250,8 @@ def process_archive_route():
 
     url_hash = hashlib.md5(original_archive_url.encode('utf-8')).hexdigest()
     logger.info(f"معالجة الرابط: {original_archive_url}, Hash: {url_hash}")
+
+    archive_type = None # Initialize archive_type
 
     if url_hash in url_cache:
         cached_data = url_cache[url_hash]
@@ -238,7 +296,8 @@ def process_archive_route():
                  raise FileNotFoundError(f"أداة megadl غير موجودة أو غير قابلة للتنفيذ: {MEGADL_EXEC_PATH}")
 
             megadl_command = [MEGADL_EXEC_PATH, original_archive_url, "--path", temp_session_folder]
-            process = subprocess.run(megadl_command, capture_output=True, text=True, check=False, timeout=600)
+            logger.info(f"Executing megadl command: {' '.join(megadl_command)} with timeout {MEGADL_TIMEOUT}s")
+            process = subprocess.run(megadl_command, capture_output=True, text=True, check=False, timeout=MEGADL_TIMEOUT)
             logger.info(f"megadl stdout: {process.stdout}")
             logger.error(f"megadl stderr: {process.stderr}")
             if process.returncode == 0:
@@ -253,9 +312,9 @@ def process_archive_route():
 
         elif "drive.google.com" in original_archive_url:
             download_url = get_google_drive_direct_link(original_archive_url)
-            logger.info(f"رابط Google Drive. الرابط المباشر: {download_url}")
+            logger.info(f"رابط Google Drive. الرابط المباشر: {download_url}. Timeout: C={REQUESTS_CONNECT_TIMEOUT}s, R={REQUESTS_READ_TIMEOUT}s")
             headers = {'User-Agent': 'Mozilla/5.0'}
-            with requests.get(download_url, headers=headers, stream=True, timeout=(15, 300), allow_redirects=True) as r:
+            with requests.get(download_url, headers=headers, stream=True, timeout=(REQUESTS_CONNECT_TIMEOUT, REQUESTS_READ_TIMEOUT), allow_redirects=True) as r:
                 r.raise_for_status()
                 # محاولة الحصول على اسم الملف من Google Drive (قد لا يكون دقيقًا دائمًا)
                 content_disposition = r.headers.get('content-disposition')
@@ -266,15 +325,15 @@ def process_archive_route():
                         local_archive_path = os.path.join(temp_session_folder, actual_downloaded_filename_for_type_check)
 
                 with open(local_archive_path, 'wb') as f:
-                    for chunk in r.iter_content(chunk_size=8192):
+                    for chunk in r.iter_content(chunk_size=DOWNLOAD_CHUNK_SIZE):
                         f.write(chunk)
             download_successful = True
             logger.info(f"تم تحميل Google Drive بنجاح: {local_archive_path}")
         else: # رابط مباشر
             download_url = original_archive_url
-            logger.info(f"تحميل رابط مباشر: {download_url}")
+            logger.info(f"تحميل رابط مباشر: {download_url}. Timeout: C={REQUESTS_CONNECT_TIMEOUT}s, R={REQUESTS_READ_TIMEOUT}s")
             headers = {'User-Agent': 'Mozilla/5.0'}
-            with requests.get(download_url, headers=headers, stream=True, timeout=(15, 300), allow_redirects=True) as r:
+            with requests.get(download_url, headers=headers, stream=True, timeout=(REQUESTS_CONNECT_TIMEOUT, REQUESTS_READ_TIMEOUT), allow_redirects=True) as r:
                 r.raise_for_status()
                 content_disposition = r.headers.get('content-disposition')
                 if content_disposition:
@@ -283,14 +342,14 @@ def process_archive_route():
                         actual_downloaded_filename_for_type_check = fname_match[0]
                         local_archive_path = os.path.join(temp_session_folder, actual_downloaded_filename_for_type_check)
                 else: # إذا لم يكن هناك content-disposition، استخدم اسم الملف من الرابط
-                    url_filename = os.path.basename(requests.utils.urlparse(download_url).path)
+                    url_filename = os.path.basename(urlparse(download_url).path) # Corrected to use urlparse from urllib.parse
                     if url_filename:
                          actual_downloaded_filename_for_type_check = url_filename
                          local_archive_path = os.path.join(temp_session_folder, actual_downloaded_filename_for_type_check)
 
 
                 with open(local_archive_path, 'wb') as f:
-                    for chunk in r.iter_content(chunk_size=8192):
+                    for chunk in r.iter_content(chunk_size=DOWNLOAD_CHUNK_SIZE):
                         f.write(chunk)
             download_successful = True
             logger.info(f"تم التحميل المباشر بنجاح: {local_archive_path}")
@@ -298,6 +357,7 @@ def process_archive_route():
         if not download_successful or not os.path.exists(local_archive_path):
             raise FileNotFoundError(f"فشل تحميل الأرشيف أو الملف غير موجود: {local_archive_path}")
 
+        logger.info(f"Download complete for session {session_id}. File: {local_archive_path}")
         file_size_mb = os.path.getsize(local_archive_path) / (1024 * 1024)
         logger.info(f"تم تحميل الأرشيف: {local_archive_path} (الحجم: {file_size_mb:.2f} MB)")
 
@@ -320,6 +380,7 @@ def process_archive_route():
                  return jsonify({'error': f"لا يمكن تحديد نوع الأرشيف أو أن الصيغة غير مدعومة. اسم الملف: {os.path.basename(local_archive_path)}"}), 400
 
         logger.info(f"جاري فك الضغط كأرشيف {archive_type}...")
+        extraction_start_time = time.time()
         extraction_done = False
         if archive_type == 'rar':
             with rarfile.RarFile(local_archive_path) as rf:
@@ -341,9 +402,14 @@ def process_archive_route():
 
         if not extraction_done:
              return jsonify({'error': "فشل فك ضغط الأرشيف."}), 500
-        logger.info(f"تم فك ضغط الأرشيف بنجاح إلى: {extracted_session_folder}")
+        extraction_time = time.time() - extraction_start_time
+        logger.info(f"تم فك ضغط الأرشيف بنجاح إلى: {extracted_session_folder} in {extraction_time:.2f} seconds.")
 
+        structure_build_start_time = time.time()
         structure = build_file_structure(extracted_session_folder, session_id)
+        structure_build_time = time.time() - structure_build_start_time
+        logger.info(f"File structure built in {structure_build_time:.2f} seconds for session {session_id}.")
+
         if not structure or not structure.get('children'):
             logger.info(f"تم فك الضغط بنجاح ولكن الأرشيف يبدو فارغًا أو الهيكل غير صالح للجلسة {session_id}.")
             url_cache[url_hash] = {'session_id': session_id, 'structure_file': os.path.join(extracted_session_folder, '.archive_structure.json')}
@@ -418,3 +484,4 @@ if __name__ == '__main__':
     # قراءة المنفذ من متغير البيئة، مع قيمة افتراضية إذا لم يتم تعيينه
     port = int(os.environ.get("FLASK_RUN_PORT", 5000))
     app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False)
+
