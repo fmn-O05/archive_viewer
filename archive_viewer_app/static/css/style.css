@@ -37,7 +37,7 @@ html.dark .file-item:hover {
     min-width: 0; /* Important for text ellipsis to work */
 }
 .file-info i {
-    margin-left: 0.6rem; /* For RTL, this should be margin-right if not handled by dir="rtl" */
+    margin-right: 0.6rem; /* For RTL, this should be margin-right */
     color: #6b7280; /* Tailwind: text-gray-500 */
     width: 1.25rem; /* Ensure icon has a fixed width */
     text-align: center;
@@ -75,7 +75,7 @@ html.dark .file-info i {
     transform: translateY(0px);
 }
 .download-link i {
-    margin-right: 0.3rem; /* For RTL, this should be margin-left */
+    margin-left: 0.3rem; /* For RTL, this should be margin-left */
 }
 
 /* Image thumbnail container */
@@ -196,12 +196,16 @@ html.dark .breadcrumb-item:not(:first-child)::before {
 
 /* Tree View specific styles */
 .tree-view ul {
-    padding-right: 20px; /* Indentation for tree */
-    border-right: 1px dashed #cbd5e0; /* gray-300 */
-    /* margin-right: 5px; */ /* Optional: if you want a bit of space from the border */
+    padding-right: 20px; /* Indentation for tree (RTL) */
+    padding-left: 0; /* Reset LTR padding */
+    border-right: 1px dashed #cbd5e0; /* gray-300 (RTL) */
+    border-left: none; /* Reset LTR border */
+    /* margin-right: 5px; */ /* Optional: if you want a bit of space from the border (RTL) */
+    /* margin-left: 0; */
 }
 html.dark .tree-view ul {
-    border-right: 1px dashed #4a5568; /* gray-700 */
+    border-right: 1px dashed #4a5568; /* gray-700 (RTL) */
+    border-left: none; /* Reset LTR border */
 }
 
 .tree-view .tree-item {
@@ -234,8 +238,8 @@ html.dark .tree-view .tree-label.selected {
 .tree-view .tree-label .fa-folder,
 .tree-view .tree-label .fa-file-lines, /* Assuming this class is used for file icons from JS */
 .tree-view .tree-label .fas { /* Generic FontAwesome icon */
-    margin-left: 8px; /* Space after icon (RTL) */
-    margin-right: 0;
+    margin-left: 8px; /* Space before icon (RTL: icon is to the left of text) */
+    margin-right: 0; /* Reset LTR margin */
 }
 
 html.dark .tree-view .tree-label .fa-folder { color: #93c5fd; /* sky-300 */ }
@@ -255,10 +259,11 @@ html.dark .tree-view .tree-label .fa-file-lines { color: #6b7280; /* gray-500 */
     display: inline-block;
     width: 1em; /* Ensure space for the icon */
     text-align: center;
+    margin-left: 4px; /* Space between toggler and icon in RTL (toggler is rightmost) */
     /* transition: transform 0.2s ease-in-out; /* REMOVE transition from parent span */
 }
 .tree-toggler::before {
-    content: "\f0da"; /* Font Awesome caret-right (for RTL, points right initially) */
+    content: "\f0d9"; /* Font Awesome caret-left (for RTL, points left initially for collapsed) */
     font-family: "Font Awesome 6 Free";
     font-weight: 900;
     display: inline-block; /* Important for transform */

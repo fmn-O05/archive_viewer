@@ -45,22 +45,19 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateThemeIcons(theme) {
         if (!sunIcon || !moonIcon) return;
         if (theme === 'dark') {
+            htmlEl.classList.add('dark'); // Ensure dark class is on html
+            htmlEl.classList.remove('light');
             sunIcon.classList.add('hidden');
             moonIcon.classList.remove('hidden');
         } else { // light theme
+            htmlEl.classList.remove('dark');
+            htmlEl.classList.add('light'); // Ensure light class is on html
             sunIcon.classList.remove('hidden');
             moonIcon.classList.add('hidden');
         }
     }
 
     function applyTheme(theme, fromUserAction = false) {
-        if (theme === 'dark') {
-            htmlEl.classList.add('dark');
-            htmlEl.classList.remove('light');
-        } else { // light theme
-            htmlEl.classList.remove('dark');
-            htmlEl.classList.add('light');
-        }
         updateThemeIcons(theme);
         if (fromUserAction) {
             localStorage.setItem('theme', theme);
@@ -152,8 +149,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Tree View Functions ---
     function buildTree(node, pathPrefix = '') {
         const ul = document.createElement('ul');
-        // لا تطبق margin/padding على الجذر الرئيسي للعرض الشجري
-        // if (pathPrefix !== '') ul.classList.add('mr-4', 'pr-4', 'border-r', 'border-gray-300', 'dark:border-gray-600');
 
         (node.children || []).forEach(child => {
             const li = document.createElement('li');
@@ -161,7 +156,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (child.type === 'directory' && child.children && child.children.length > 0) {
                  li.classList.add('collapsed');
             } else if (child.type === 'directory') {
-                 li.classList.add('collapsed'); // المجلدات الفارغة أيضاً
+                 li.classList.add('collapsed'); // Empty folders also
             }
 
             const label = document.createElement('span');
@@ -171,19 +166,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (child.type === 'directory') {
                 const toggler = document.createElement('span');
-                toggler.className = 'tree-toggler text-xs text-gray-500 dark:text-gray-400 ml-1'; // Toggler on the left for RTL
+                toggler.className = 'tree-toggler text-xs text-gray-500 dark:text-gray-400';
                 if (!child.children || child.children.length === 0) {
                     toggler.style.visibility = 'hidden';
                 }
-                label.appendChild(toggler);
+                label.appendChild(toggler); // Toggler first
             }
 
             const icon = document.createElement('i');
-            // الأيقونة تأتي بعد التوجلر (إذا كان موجوداً) وقبل اسم الملف
-            icon.className = getFileIconClass(child.name, child.type === 'directory') + (child.type === 'directory' ? ' ml-1' : ' ml-2');
-            label.appendChild(icon);
+            icon.className = getFileIconClass(child.name, child.type === 'directory');
+            label.appendChild(icon); // Icon second
 
-            label.appendChild(document.createTextNode(" " + child.name)); // مسافة صغيرة قبل الاسم
+            label.appendChild(document.createTextNode(child.name)); // Text last
 
             li.appendChild(label);
 
@@ -410,7 +404,6 @@ document.addEventListener('DOMContentLoaded', () => {
         let imagesFoundOnPage = false;
 
         items.forEach(item => {
-            // item.path is already the full path from the root of the archive
             const itemFullPath = item.path;
 
             const fileItemDiv = document.createElement('div');
@@ -421,7 +414,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const iconElement = document.createElement('i');
             iconElement.className = getFileIconClass(item.name, item.type === 'directory') + ' fa-lg';
             const fileNameSpan = document.createElement('span');
-            fileNameSpan.className = 'file-name mr-2'; // For RTL, text is to the right of icon
+            fileNameSpan.className = 'file-name';
             fileNameSpan.textContent = item.name;
 
             if (item.type === 'directory') {
@@ -431,8 +424,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 iconElement.addEventListener('click', () => navigateToPath(itemFullPath));
             }
 
-            fileInfoDiv.appendChild(iconElement); // Icon first for RTL
-            fileInfoDiv.appendChild(fileNameSpan);
+            fileInfoDiv.appendChild(iconElement); // Icon
+            fileInfoDiv.appendChild(fileNameSpan); // Text
             fileItemDiv.appendChild(fileInfoDiv);
 
             if (item.type === 'file') {
@@ -445,7 +438,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const downloadIcon = document.createElement('i');
                 downloadIcon.className = 'fas fa-download';
                 downloadLink.appendChild(downloadIcon);
-                downloadLink.appendChild(document.createTextNode(' تحميل')); // Text after icon
+                downloadLink.appendChild(document.createTextNode(' تحميل'));
                 fileItemDiv.appendChild(downloadLink);
             }
             fileListContainer.appendChild(fileItemDiv);
@@ -510,9 +503,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const endItem = Math.min(currentPage * perPage, totalItems);
         if (totalItems > 0) { fileListInfoDiv.textContent = `عرض العناصر ${startItem}-${endItem} من إجمالي ${totalItems}. (صفحة ${currentPage} من ${totalPages})`;}
 
-        const createNavButton = (textOrHtml, targetPage, isDisabled) => {
+        const createNavButton = (textOrHtml, targetPage, isDisabled, isNext = false) => {
             const button = document.createElement('button');
-            button.innerHTML = textOrHtml; // Allows using HTML for icons
+            button.innerHTML = textOrHtml;
             button.className = 'pagination-btn bg-sky-500 hover:bg-sky-600 dark:bg-sky-600 dark:hover:bg-sky-700 text-white font-semibold py-2 px-3 sm:px-4 rounded-md shadow text-sm sm:text-base transition-colors';
             if (isDisabled) {
                 button.classList.add('disabled', 'opacity-50', 'cursor-not-allowed');
@@ -526,25 +519,21 @@ document.addEventListener('DOMContentLoaded', () => {
             return button;
         };
 
-        // For RTL: Next button on the right, Prev button on the left
-        paginationControlsDiv.appendChild(createNavButton('التالي <i class="fas fa-chevron-left mr-1"></i>', currentPage + 1, currentPage === totalPages));
+        paginationControlsDiv.appendChild(createNavButton('<i class="fas fa-chevron-right ml-1"></i> السابق', currentPage - 1, currentPage === 1, false));
 
         const pageInfoSpan = document.createElement('span');
-        pageInfoSpan.className = 'px-2 py-1 sm:px-3 sm:py-2 rounded-md text-xs sm:text-sm font-medium bg-gray-200 dark:bg-gray-700 mx-2';
+        pageInfoSpan.className = 'px-2 py-1 sm:px-3 sm:py-2 rounded-md text-xs sm:text-sm font-medium bg-gray-200 dark:bg-gray-700';
         pageInfoSpan.textContent = `صفحة ${currentPage} / ${totalPages}`;
         paginationControlsDiv.appendChild(pageInfoSpan);
 
-        paginationControlsDiv.appendChild(createNavButton('<i class="fas fa-chevron-right ml-1"></i> السابق', currentPage - 1, currentPage === 1));
+        paginationControlsDiv.appendChild(createNavButton('التالي <i class="fas fa-chevron-left mr-1"></i>', currentPage + 1, currentPage === totalPages, true));
     }
 
     function updateImageListInfoForCurrentPath(currentPathPageItems, totalItemsInCurrentPath) {
         if (!imageListInfoDiv) return;
 
-        // Filter for images within the *current path's total items*, not just the page
         const totalImagesInCurrentPath = currentDisplayedItems.filter(item => item.type === 'file' && item.is_image).length;
-        // Filter for images on the *current page*
         const imagesInCurrentPage = currentPathPageItems.filter(item => item.type === 'file' && item.is_image);
-
 
         if (totalImagesInCurrentPath === 0) {
             imageListInfoDiv.textContent = 'لا توجد صور في هذا المجلد.';
@@ -602,7 +591,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function openImageModal(clickedImageFullPath) {
         if (!currentSessionId || !allImagesForModalNavigation || allImagesForModalNavigation.length === 0) return;
-        // Find the image by its full path in the global list of all images
         const initialIndex = allImagesForModalNavigation.findIndex(img => img.path === clickedImageFullPath);
 
         if (initialIndex !== -1 && imageModal) {
@@ -634,9 +622,8 @@ document.addEventListener('DOMContentLoaded', () => {
     document.addEventListener('keydown', (event) => {
         if (!imageModal || imageModal.classList.contains('hidden')) return;
         if (event.key === 'Escape') closeImageModal();
-        // For RTL, ArrowRight is Prev, ArrowLeft is Next
-        if (event.key === 'ArrowRight' && modalPrevButton && !modalPrevButton.disabled) modalPrevButton.click();
-        if (event.key === 'ArrowLeft' && modalNextButton && !modalNextButton.disabled) modalNextButton.click();
+        if (event.key === 'ArrowLeft' && modalPrevButton && !modalPrevButton.disabled) modalPrevButton.click(); // Left arrow for "previous" (button on right)
+        if (event.key === 'ArrowRight' && modalNextButton && !modalNextButton.disabled) modalNextButton.click(); // Right arrow for "next" (button on left)
     });
     if(modalPrevButton) modalPrevButton.addEventListener('click', (e) => { e.stopPropagation(); if (currentModalImageIndex > 0) displayImageInModal(currentModalImageIndex - 1); });
     if(modalNextButton) modalNextButton.addEventListener('click', (e) => { e.stopPropagation(); if (currentModalImageIndex < allImagesForModalNavigation.length - 1) displayImageInModal(currentModalImageIndex + 1); });
@@ -656,7 +643,6 @@ document.addEventListener('DOMContentLoaded', () => {
             targetButton.classList.add('active-tab');
         }
 
-        // Update image list info when switching to image tab
         if (targetTabId === 'images-only') {
             const { files, folders } = getItemsForPath(currentPathInTree, fullArchiveStructure);
             const pageItemsForInfo = [...folders, ...files].slice( (currentPageGlobal - 1) * filesPerPageGlobal, currentPageGlobal * filesPerPageGlobal);
@@ -669,29 +655,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Intersection Observer for Lazy Loading Images ---
     let lazyImageObserver;
-    const observerOptions = { root: null, rootMargin: '0px 0px 200px 0px', threshold: 0.01 }; // Load images 200px before they enter viewport
+    const observerOptions = { root: null, rootMargin: '0px 0px 200px 0px', threshold: 0.01 };
 
     function handleImageIntersection(entries, observer) {
         entries.forEach(entry => {
             if (entry.isIntersecting) {
                 const lazyImage = entry.target;
-                const actualImageLoader = new Image(); // Use a temporary image to load first
+                const actualImageLoader = new Image();
                 actualImageLoader.onload = () => {
                     lazyImage.src = lazyImage.dataset.src;
                     lazyImage.alt = lazyImage.dataset.altOriginal || 'صورة محملة';
-                    lazyImage.classList.remove('lazy-load'); // Optional: remove placeholder class
+                    lazyImage.classList.remove('lazy-load');
                     lazyImage.classList.add('loaded');
                 };
                 actualImageLoader.onerror = () => {
-                    lazyImage.src = errorImageSrc; // Show error placeholder
+                    lazyImage.src = errorImageSrc;
                     lazyImage.alt = `فشل تحميل: ${lazyImage.dataset.altOriginal || 'صورة'}`;
                     lazyImage.classList.remove('lazy-load');
                     lazyImage.classList.add('error');
-                    // Optional: Add styling for error state container
                     if(lazyImage.parentElement) lazyImage.parentElement.classList.add('flex', 'items-center', 'justify-center', 'bg-gray-100', 'dark:bg-gray-800');
                 };
-                actualImageLoader.src = lazyImage.dataset.src; // Start loading into temp image
-                observer.unobserve(lazyImage); // Stop observing once triggered
+                actualImageLoader.src = lazyImage.dataset.src;
+                observer.unobserve(lazyImage);
             }
         });
     }
@@ -700,7 +685,6 @@ document.addEventListener('DOMContentLoaded', () => {
         lazyImageObserver = new IntersectionObserver(handleImageIntersection, observerOptions);
     } else {
         console.warn("IntersectionObserver not supported. Lazy loading disabled.");
-        // Fallback: load all images immediately (or you could implement a scroll-based lazy load)
         document.querySelectorAll('img.lazy-load').forEach(img => {
             img.src = img.dataset.src;
             img.alt = img.dataset.altOriginal || 'صورة';
@@ -709,10 +693,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Initial setup
     if (tabAllFilesButton) {
-        switchTab('all-files'); // Default to all files tab
+        switchTab('all-files');
     }
-    navigateToPath(''); // Load root content on page load
-
+    navigateToPath('');
 });
