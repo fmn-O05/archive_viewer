@@ -4,4 +4,8 @@ rarfile
 Werkzeug==2.3.7
 requests
 py7zr
+celery
+redis
 # gunicorn #  أضف هذا إذا كنت ستنشر على منصات مثل Heroku, Railway, etc.
+SQLAlchemy>=1.4
+
