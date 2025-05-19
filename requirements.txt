@@ -1,0 +1,7 @@
+Flask
+pyngrok
+rarfile
+Werkzeug==2.3.7
+requests
+py7zr
+# gunicorn #  أضف هذا إذا كنت ستنشر على منصات مثل Heroku, Railway, etc.

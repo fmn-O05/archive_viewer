@@ -1,0 +1,272 @@
+/* General body styles, already handled by Tailwind mostly */
+body {
+    scroll-behavior: smooth;
+}
+
+body.modal-open {
+    overflow: hidden;
+}
+
+/* Dark mode specific styles (Tailwind handles most via 'dark:' prefix) */
+
+/* File list item styling */
+.file-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.6rem 0.8rem;
+    border-bottom: 1px solid #e5e7eb; /* Tailwind: border-gray-200 */
+    transition: background-color 0.2s ease-in-out;
+}
+html.dark .file-item {
+    border-bottom: 1px solid #374151; /* Tailwind: dark:border-gray-700 */
+}
+.file-item:last-child {
+    border-bottom: none;
+}
+.file-item:hover {
+    background-color: #f9fafb; /* Tailwind: bg-gray-50 */
+}
+html.dark .file-item:hover {
+    background-color: #1f2937; /* Tailwind: dark:bg-gray-700/50 or similar */
+}
+
+.file-info {
+    display: flex;
+    align-items: center;
+    min-width: 0; /* Important for text ellipsis to work */
+}
+.file-info i {
+    margin-left: 0.6rem; /* For RTL, this should be margin-right if not handled by dir="rtl" */
+    color: #6b7280; /* Tailwind: text-gray-500 */
+    width: 1.25rem; /* Ensure icon has a fixed width */
+    text-align: center;
+    flex-shrink: 0; /* Prevent icon from shrinking */
+}
+html.dark .file-info i {
+    color: #9ca3af; /* Tailwind: dark:text-gray-400 */
+}
+.file-name {
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex-grow: 1; /* Allow filename to take available space */
+}
+/* Download link styles */
+.download-link {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.3rem 0.6rem;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: white;
+    background-color: #3b82f6; /* Tailwind: bg-blue-500 */
+    border-radius: 0.375rem; /* Tailwind: rounded-md */
+    text-decoration: none;
+    flex-shrink: 0; /* Prevent link from shrinking */
+    transition: background-color 0.2s ease-in-out, transform 0.1s ease-in-out;
+}
+.download-link:hover {
+    background-color: #2563eb; /* Tailwind: bg-blue-600 */
+    transform: translateY(-1px);
+}
+.download-link:active {
+    transform: translateY(0px);
+}
+.download-link i {
+    margin-right: 0.3rem; /* For RTL, this should be margin-left */
+}
+
+/* Image thumbnail container */
+#image-display .image-container-class {
+    background-color: #ffffff; /* Tailwind: bg-white */
+    padding: 0.5rem; /* Tailwind: p-2 */
+    border-radius: 0.5rem; /* Tailwind: rounded-lg */
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06); /* Tailwind: shadow-md */
+    transition: all 0.2s ease-in-out;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between; /* Pushes filename to bottom */
+    overflow: hidden; /* Ensures content respects border radius */
+}
+html.dark #image-display .image-container-class {
+    background-color: #374151; /* Tailwind: dark:bg-gray-700 */
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.3), 0 2px 4px -1px rgba(0,0,0,0.15); /* Darker shadow */
+}
+
+#image-display img.image-thumbnail {
+    border: 1px solid #e5e7eb; /* Tailwind: border-gray-200 */
+    border-radius: 0.375rem; /* Tailwind: rounded-md */
+    width: 100%;
+    height: 10rem; /* Fixed height for thumbnails, adjust as needed */
+    object-fit: cover; /* Crop image to fit */
+}
+html.dark #image-display img.image-thumbnail {
+    border: 1px solid #4b5563; /* Tailwind: dark:border-gray-600 */
+}
+#image-display .image-thumbnail:hover {
+    transform: scale(1.03);
+    box-shadow: 0 6px 12px rgba(0,0,0,0.15); /* Tailwind: shadow-lg */
+}
+html.dark #image-display .image-thumbnail:hover {
+    box-shadow: 0 6px 12px rgba(0,0,0,0.4); /* Darker shadow for dark mode */
+}
+
+#image-display .filename-text-class {
+    font-size: 0.8rem; /* Tailwind: text-xs */
+    text-align: center;
+    margin-top: 0.5rem; /* Tailwind: mt-2 */
+    color: #4b5563; /* Tailwind: text-gray-600 */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding: 0 0.25rem; /* Small horizontal padding */
+}
+html.dark #image-display .filename-text-class {
+    color: #d1d5db; /* Tailwind: dark:text-gray-300 */
+}
+
+/* Modal styles (mostly handled by Tailwind) */
+.modal-control-btn {
+    background-color: rgba(30, 41, 59, 0.5); /* Tailwind: bg-slate-800/50 */
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    transition: background-color 0.2s ease-in-out, opacity 0.2s ease-in-out, transform 0.2s ease-in-out;
+}
+.modal-control-btn:hover:not(.disabled) {
+    background-color: rgba(51, 65, 85, 0.75); /* Tailwind: bg-slate-700/75 */
+    transform: scale(1.1);
+}
+.modal-control-btn.disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+    transform: scale(1); /* No hover transform when disabled */
+}
+
+/* Tab styling */
+.tab-button {
+    border-color: transparent;
+    color: #6b7280; /* Tailwind: text-gray-500 */
+    padding-right: 0.75rem; /* Tailwind: px-3 */
+    padding-left: 0.75rem;
+    padding-bottom: 0.75rem; /* Tailwind: py-3 (applied to parent) */
+    position: relative;
+    outline: none;
+    transition: color 0.2s ease-in-out, border-color 0.2s ease-in-out;
+}
+html.dark .tab-button {
+    color: #9ca3af; /* Tailwind: dark:text-gray-400 */
+}
+.tab-button:hover:not(.active-tab) {
+    border-color: #d1d5db; /* Tailwind: hover:border-gray-300 */
+    color: #374151; /* Tailwind: hover:text-gray-700 */
+}
+html.dark .tab-button:hover:not(.active-tab) {
+    border-color: #4b5563; /* Tailwind: dark:hover:border-gray-600 */
+    color: #e5e7eb; /* Tailwind: dark:hover:text-gray-200 */
+}
+.tab-button.active-tab {
+    color: #2563eb; /* Tailwind: text-blue-600 */
+    font-weight: 600; /* Tailwind: font-semibold */
+    border-color: #2563eb; /* Tailwind: border-blue-600 */
+}
+html.dark .tab-button.active-tab {
+    color: #60a5fa; /* Tailwind: dark:text-blue-400 */
+    border-color: #60a5fa; /* Tailwind: dark:border-blue-400 */
+}
+.tab-button i {
+    color: currentColor; /* Icon inherits text color */
+}
+
+/* Breadcrumb styling */
+.breadcrumb-item a:hover {
+    text-decoration: underline;
+}
+/* For RTL, the slash should be on the left of the item */
+.breadcrumb-item:not(:first-child)::before {
+    content: '/';
+    margin: 0 0.5em;
+    color: #9ca3af; /* Tailwind: text-gray-400 */
+}
+html.dark .breadcrumb-item:not(:first-child)::before {
+     color: #6b7280; /* Tailwind: dark:text-gray-500 */
+}
+
+
+/* Tree View specific styles */
+.tree-view ul {
+    padding-right: 20px; /* Indentation for tree */
+    border-right: 1px dashed #cbd5e0; /* gray-300 */
+    /* margin-right: 5px; */ /* Optional: if you want a bit of space from the border */
+}
+html.dark .tree-view ul {
+    border-right: 1px dashed #4a5568; /* gray-700 */
+}
+
+.tree-view .tree-item {
+    list-style: none;
+    padding: 2px 0;
+}
+.tree-view .tree-label {
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    padding: 4px 6px;
+    border-radius: 4px;
+    transition: background-color 0.15s ease-in-out;
+}
+.tree-view .tree-label:hover {
+    background-color: #e5e7eb; /* gray-200 */
+}
+html.dark .tree-view .tree-label:hover {
+    background-color: #374151; /* gray-700 */
+}
+.tree-view .tree-label.selected {
+    background-color: #bfdbfe; /* blue-200 */
+    font-weight: bold; /* Tailwind: font-bold */
+}
+html.dark .tree-view .tree-label.selected {
+    background-color: #3b82f6; /* blue-500 */
+    color: white;
+}
+
+.tree-view .tree-label .fa-folder,
+.tree-view .tree-label .fa-file-lines, /* Assuming this class is used for file icons from JS */
+.tree-view .tree-label .fas { /* Generic FontAwesome icon */
+    margin-left: 8px; /* Space after icon (RTL) */
+    margin-right: 0;
+}
+
+html.dark .tree-view .tree-label .fa-folder { color: #93c5fd; /* sky-300 */ }
+.tree-view .tree-label .fa-folder { color: #60a5fa; /* sky-400 */ }
+
+html.dark .tree-view .tree-label .fa-file-lines { color: #6b7280; /* gray-500 */ }
+.tree-view .tree-label .fa-file-lines { color: #9ca3af; /* gray-400 */ }
+
+
+/* Styles for Tree Toggler (Arrow) and Collapsing Children */
+.tree-item.collapsed > ul {
+    display: none;
+}
+
+.tree-toggler {
+    cursor: pointer;
+    display: inline-block;
+    width: 1em; /* Ensure space for the icon */
+    text-align: center;
+    /* transition: transform 0.2s ease-in-out; /* REMOVE transition from parent span */
+}
+.tree-toggler::before {
+    content: "\f0da"; /* Font Awesome caret-right (for RTL, points right initially) */
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+    display: inline-block; /* Important for transform */
+    transition: transform 0.2s ease-in-out; /* ADDED transition HERE */
+}
+
+.tree-item.expanded .tree-toggler::before {
+    transform: rotate(90deg); /* Rotates to point down */
+}
+
+/* Progress bar styling from HTML is sufficient with Tailwind */
